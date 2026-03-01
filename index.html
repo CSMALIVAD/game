@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Quantum Biochemistry Arena</title>
+
+<style>
+body{
+  margin:0;
+  overflow:hidden;
+  background:black;
+  font-family:Arial;
+  color:#00ffff;
+  touch-action:none;
+}
+
+#ui{
+  position:fixed;
+  top:10px;
+  left:10px;
+  font-size:14px;
+}
+
+#pauseScreen{
+  position:fixed;
+  width:100%;
+  height:100%;
+  background:rgba(0,0,0,0.85);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  font-size:30px;
+  color:#00ffff;
+}
+
+.atom{
+  position:absolute;
+  width:50px;
+  height:50px;
+  border-radius:50%;
+  border:2px solid #00ffff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:10px;
+  text-align:center;
+}
+
+#paddle{
+  position:absolute;
+  width:45vw;
+  max-width:260px;
+  height:28px;
+  bottom:15px;
+  background:linear-gradient(90deg,#00ffff,#00ff99);
+  border-radius:12px;
+  text-align:center;
+  line-height:28px;
+  font-weight:bold;
+  color:black;
+  box-shadow:0 0 20px #00ffff;
+}
+</style>
+</head>
+
+<body>
+
+<div id="ui">
+Level: <span id="level">1</span> |
+Time: <span id="time">0</span> |
+High Score: <span id="high">0</span>
+</div>
+
+<div id="pauseScreen">PAUSED</div>
+<div id="paddle">⚡ BIOCHEM ⚡</div>
+
+<script>
+
+let atom;
+let x,y,vx,vy;
+
+let ballSize=50;
+let ballSpeed=260;
+let paddleSpeed=700;
+
+let level=1;
+let maxLevel=100;
+
+let paddle=document.getElementById("paddle");
+let paddleWidth=paddle.offsetWidth;
+let paddleX=window.innerWidth/2 - paddleWidth/2;
+
+let lastTime=performance.now();
+let startTime=performance.now();
+
+let paused=false;
+let gameOver=false;
+
+paddle.style.left=paddleX+"px";
+
+let highScore=localStorage.getItem("highScore")||0;
+document.getElementById("high").innerText=highScore;
+
+function createAtom(){
+  atom=document.createElement("div");
+  atom.className="atom";
+  atom.innerText="RESIDENT";
+  document.body.appendChild(atom);
+
+  x=window.innerWidth/2;
+  y=120;
+
+  const angle=(Math.random()*Math.PI/3)+(Math.PI/6);
+  const dir=Math.random()>0.5?1:-1;
+
+  vx=ballSpeed*Math.cos(angle)*dir;
+  vy=-ballSpeed*Math.sin(angle);
+}
+
+function update(now){
+  if(gameOver) return;
+  requestAnimationFrame(update);
+
+  const delta=(now-lastTime)/1000;
+  lastTime=now;
+  if(paused) return;
+
+  x+=vx*delta;
+  y+=vy*delta;
+
+  if(x<=0){x=0;vx*=-1;}
+  if(x+ballSize>=window.innerWidth){
+    x=window.innerWidth-ballSize;vx*=-1;
+  }
+  if(y<=0){y=0;vy*=-1;}
+
+  let paddleTop=window.innerHeight-43;
+
+  if(
+    y+ballSize>=paddleTop &&
+    x+ballSize>paddleX &&
+    x<paddleX+paddleWidth &&
+    vy>0
+  ){
+    y=paddleTop-ballSize;
+
+    let hit=(x+ballSize/2-paddleX)/paddleWidth;
+    let angle=(hit-0.5)*Math.PI/2;
+
+    vx=ballSpeed*Math.sin(angle);
+    vy=-ballSpeed*Math.cos(angle);
+  }
+
+  if(y>window.innerHeight){
+    gameOver=true;
+    alert("Game Over at Level "+level);
+    if(level>highScore){
+      localStorage.setItem("highScore",level);
+    }
+    location.reload();
+  }
+
+  atom.style.left=x+"px";
+  atom.style.top=y+"px";
+}
+
+function progressiveDifficulty(){
+  let elapsed=(performance.now()-startTime)/1000;
+  document.getElementById("time").innerText=Math.floor(elapsed);
+
+  let newLevel=Math.floor(elapsed/6)+1;
+  if(newLevel>maxLevel) newLevel=maxLevel;
+
+  if(newLevel>level){
+    level=newLevel;
+    document.getElementById("level").innerText=level;
+    ballSpeed+=20;
+
+    const mag=Math.sqrt(vx*vx+vy*vy);
+    vx=(vx/mag)*ballSpeed;
+    vy=(vy/mag)*ballSpeed;
+  }
+}
+
+/* TOUCH CONTROL */
+document.addEventListener("touchmove",e=>{
+  let touch=e.touches[0];
+  paddleWidth=paddle.offsetWidth;
+  paddleX=touch.clientX - paddleWidth/2;
+  paddleX=Math.max(0,Math.min(window.innerWidth-paddleWidth,paddleX));
+  paddle.style.left=paddleX+"px";
+});
+
+/* Resize handling */
+window.addEventListener("resize",()=>{
+  paddleWidth=paddle.offsetWidth;
+});
+
+createAtom();
+setInterval(progressiveDifficulty,1000);
+requestAnimationFrame(update);
+
+</script>
+</body>
+</html>
